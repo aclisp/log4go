@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-import l4g "code.google.com/p/log4go"
+import l4g "github.com/aclisp/log4go"
 
 const (
 	filename = "flw.log"
@@ -38,6 +38,8 @@ func main() {
 
 	// Close the log
 	log.Close()
+
+	time.Sleep(1 * time.Second)
 
 	// Print what was logged to the file (yes, I know I'm skipping error checking)
 	fd, _ := os.Open(filename)

@@ -3,8 +3,9 @@
 package log4go
 
 import (
-	"os"
 	"fmt"
+	"os"
+	"syscall"
 	"time"
 )
 
@@ -85,7 +86,7 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 			case <-w.rot:
 				if err := w.intRotate(); err != nil {
 					fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
-					return
+					continue
 				}
 			case rec, ok := <-w.rec:
 				if !ok {
@@ -97,7 +98,7 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 					(w.daily && now.Day() != w.daily_opendate) {
 					if err := w.intRotate(); err != nil {
 						fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
-						return
+						continue
 					}
 				}
 
@@ -105,7 +106,7 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 				n, err := fmt.Fprint(w.file, FormatLogRecord(w.format, rec))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
-					return
+					continue
 				}
 
 				// Update the counts
@@ -123,6 +124,34 @@ func (w *FileLogWriter) Rotate() {
 	w.rot <- true
 }
 
+func (w *FileLogWriter) shrinkDiskStorage() {
+	stat := syscall.Statfs_t{}
+	err := syscall.Statfs(w.filename, &stat)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FileLogWriter.shrinkDiskStorage(%q): %s\n", w.filename, err)
+		return
+	}
+	availPercent := (stat.Bavail * 100 / stat.Blocks)
+	if availPercent > 10 {
+		return
+	}
+	err = os.Remove(w.filename + ".001")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FileLogWriter.shrinkDiskStorage(%q): %s\n", w.filename, err)
+		return
+	}
+	num := 2
+	var oldname, newname string
+	for ; err == nil && num <= 999; num++ {
+		oldname = w.filename + fmt.Sprintf(".%03d", num)
+		_, err = os.Lstat(oldname)
+		if err == nil {
+			newname = w.filename + fmt.Sprintf(".%03d", num-1)
+			err = os.Rename(oldname, newname)
+		}
+	}
+}
+
 // If this is called in a threaded context, it MUST be synchronized
 func (w *FileLogWriter) intRotate() error {
 	// Close any log file that may be open
@@ -135,6 +164,8 @@ func (w *FileLogWriter) intRotate() error {
 	if w.rotate {
 		_, err := os.Lstat(w.filename)
 		if err == nil { // file exists
+			w.shrinkDiskStorage()
+
 			// Find the next available number
 			num := 1
 			fname := ""
