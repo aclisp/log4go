@@ -135,9 +135,13 @@ func (w *FileLogWriter) shrinkDiskStorage() {
 	if availPercent > 10 {
 		return
 	}
+	w.remove001()
+}
+
+func (w *FileLogWriter) remove001() (err error) {
 	err = os.Remove(w.filename + ".001")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "FileLogWriter.shrinkDiskStorage(%q): %s\n", w.filename, err)
+		fmt.Fprintf(os.Stderr, "FileLogWriter.remove001(%q): %s\n", w.filename, err)
 		return
 	}
 	num := 2
@@ -150,6 +154,7 @@ func (w *FileLogWriter) shrinkDiskStorage() {
 			err = os.Rename(oldname, newname)
 		}
 	}
+	return nil
 }
 
 // If this is called in a threaded context, it MUST be synchronized
@@ -175,7 +180,9 @@ func (w *FileLogWriter) intRotate() error {
 			}
 			// return error if the last file checked still existed
 			if err == nil {
-				return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", w.filename)
+				if err = w.remove001(); err != nil {
+					return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", w.filename)
+				}
 			}
 
 			// Rename the file to its newfound home
