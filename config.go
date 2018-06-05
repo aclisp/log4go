@@ -167,6 +167,13 @@ func strToNumSuffix(str string, mult int) int {
 	parsed, _ := strconv.Atoi(str)
 	return parsed * num
 }
+
+func strToNumPercent(str string) int {
+	str = strings.TrimSuffix(str, "%")
+	parsed, _ := strconv.Atoi(str)
+	return parsed
+}
+
 func xmlToFileLogWriter(filename string, props []xmlProperty, enabled bool) (*FileLogWriter, bool) {
 	file := ""
 	format := "[%D %T] [%L] (%S) %M"
@@ -174,6 +181,7 @@ func xmlToFileLogWriter(filename string, props []xmlProperty, enabled bool) (*Fi
 	maxsize := 0
 	daily := false
 	rotate := false
+	freedisk := 10
 
 	// Parse properties
 	for _, prop := range props {
@@ -190,6 +198,8 @@ func xmlToFileLogWriter(filename string, props []xmlProperty, enabled bool) (*Fi
 			daily = strings.Trim(prop.Value, " \r\n") != "false"
 		case "rotate":
 			rotate = strings.Trim(prop.Value, " \r\n") != "false"
+		case "freedisk":
+			freedisk = strToNumPercent(strings.Trim(prop.Value, " \r\n"))
 		default:
 			fmt.Fprintf(os.Stderr, "LoadConfiguration: Warning: Unknown property \"%s\" for file filter in %s\n", prop.Name, filename)
 		}
@@ -211,6 +221,7 @@ func xmlToFileLogWriter(filename string, props []xmlProperty, enabled bool) (*Fi
 	flw.SetRotateLines(maxlines)
 	flw.SetRotateSize(maxsize)
 	flw.SetRotateDaily(daily)
+	flw.SetFreeDiskSpacePercentage(freedisk)
 	return flw, true
 }
 
@@ -220,6 +231,7 @@ func xmlToXMLLogWriter(filename string, props []xmlProperty, enabled bool) (*Fil
 	maxsize := 0
 	daily := false
 	rotate := false
+	freedisk := 10
 
 	// Parse properties
 	for _, prop := range props {
@@ -234,6 +246,8 @@ func xmlToXMLLogWriter(filename string, props []xmlProperty, enabled bool) (*Fil
 			daily = strings.Trim(prop.Value, " \r\n") != "false"
 		case "rotate":
 			rotate = strings.Trim(prop.Value, " \r\n") != "false"
+		case "freedisk":
+			freedisk = strToNumPercent(strings.Trim(prop.Value, " \r\n"))
 		default:
 			fmt.Fprintf(os.Stderr, "LoadConfiguration: Warning: Unknown property \"%s\" for xml filter in %s\n", prop.Name, filename)
 		}
@@ -254,6 +268,7 @@ func xmlToXMLLogWriter(filename string, props []xmlProperty, enabled bool) (*Fil
 	xlw.SetRotateLines(maxrecords)
 	xlw.SetRotateSize(maxsize)
 	xlw.SetRotateDaily(daily)
+	xlw.SetFreeDiskSpacePercentage(freedisk)
 	return xlw, true
 }
 

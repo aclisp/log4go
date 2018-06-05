@@ -38,6 +38,9 @@ type FileLogWriter struct {
 
 	// Keep old logfiles (.001, .002, etc)
 	rotate bool
+
+	// Threshold to shrink disk storage
+	freedisk int
 }
 
 // This is the FileLogWriter's output method
@@ -65,6 +68,7 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 		filename: fname,
 		format:   "[%D %T] [%L] (%S) %M",
 		rotate:   rotate,
+		freedisk: 10,
 	}
 
 	// open the file for the first time
@@ -132,7 +136,7 @@ func (w *FileLogWriter) shrinkDiskStorage() {
 		return
 	}
 	availPercent := (stat.Bavail * 100 / stat.Blocks)
-	if availPercent > 10 {
+	if availPercent > uint64(w.freedisk) {
 		return
 	}
 	w.remove001()
@@ -194,7 +198,7 @@ func (w *FileLogWriter) intRotate() error {
 	}
 
 	// Open the log file
-	fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+	fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -262,6 +266,12 @@ func (w *FileLogWriter) SetRotateDaily(daily bool) *FileLogWriter {
 func (w *FileLogWriter) SetRotate(rotate bool) *FileLogWriter {
 	//fmt.Fprintf(os.Stderr, "FileLogWriter.SetRotate: %v\n", rotate)
 	w.rotate = rotate
+	return w
+}
+
+func (w *FileLogWriter) SetFreeDiskSpacePercentage(freedisk int) *FileLogWriter {
+	//fmt.Fprintf(os.Stderr, "FileLogWriter.SetFreeDiskSpacePercentage %v\n", freedisk)
+	w.freedisk = freedisk
 	return w
 }
 
